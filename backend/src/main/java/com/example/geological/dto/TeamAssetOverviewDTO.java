@@ -17,5 +17,9 @@ public class TeamAssetOverviewDTO {
     private Double totalLoadCapacity;
     /** 剩余承重(kg) = 上限 - 已用 */
     private Double remainingLoadCapacity;
+    /** 在途样品袋数（已登记送检、尚未出站办结） */
+    private Long inTransitBagCount;
+    /** 在途样品袋袋重合计(kg) */
+    private Double inTransitBagWeight;
     private List<WorkstationDTO> workstations;
 }

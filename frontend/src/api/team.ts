@@ -18,6 +18,10 @@ export interface TeamAssetOverview {
   maxLoadCapacity: number
   totalLoadCapacity: number
   remainingLoadCapacity: number
+  /** 在途样品袋数 */
+  inTransitBagCount: number
+  /** 在途样品袋袋重合计(kg) */
+  inTransitBagWeight: number
   workstations: any[]
 }
 

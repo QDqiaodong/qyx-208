@@ -2,6 +2,7 @@ package com.example.geological.config;
 
 import com.example.geological.dto.ResponseDTO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -20,6 +21,18 @@ public class GlobalExceptionHandler {
     public ResponseDTO<Void> handleIllegalArgumentException(IllegalArgumentException e) {
         log.warn("Illegal argument: {}", e.getMessage());
         return ResponseDTO.error(400, e.getMessage());
+    }
+
+    /**
+     * 唯一约束兜底：样品袋「同小队+同送检日+同袋号」并发时，
+     * 若唯一索引冲突在 Service 捕获之外冒出，仍返回明确的 400 业务错误，
+     * 而不是笼统的 500。
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseDTO<Void> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        log.warn("Data integrity violation: {}", e.getMessage());
+        return ResponseDTO.error(400, "登记冲突：该小队、该送检日、该袋号已存在登记（同袋已在途/办结），本次提交失败，不允许重复落账");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

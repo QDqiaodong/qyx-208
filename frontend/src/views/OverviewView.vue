@@ -35,6 +35,14 @@
                 </span>
                 <span class="stat-label">剩余承重(kg)</span>
               </div>
+              <div class="stat-item bag-stat">
+                <span class="stat-value">{{ overview.inTransitBagCount ?? 0 }}</span>
+                <span class="stat-label">在途样品袋(只)</span>
+              </div>
+              <div class="stat-item bag-stat">
+                <span class="stat-value">{{ (overview.inTransitBagWeight ?? 0).toFixed(2) }}</span>
+                <span class="stat-label">在途袋重合计(kg)</span>
+              </div>
             </div>
           </div>
 
@@ -152,6 +160,10 @@ onMounted(loadData)
 
 .remaining-zero {
   color: #f56c6c;
+}
+
+.bag-stat .stat-value {
+  color: #b88230;
 }
 
 .usage-bar {

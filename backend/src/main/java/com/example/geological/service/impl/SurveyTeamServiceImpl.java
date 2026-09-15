@@ -5,6 +5,7 @@ import com.example.geological.dto.TeamAssetOverviewDTO;
 import com.example.geological.dto.WorkstationDTO;
 import com.example.geological.entity.SurveyTeam;
 import com.example.geological.entity.Workstation;
+import com.example.geological.repository.SampleBagRepository;
 import com.example.geological.repository.SurveyTeamRepository;
 import com.example.geological.repository.WorkstationRepository;
 import com.example.geological.service.SurveyTeamService;
@@ -24,6 +25,7 @@ public class SurveyTeamServiceImpl implements SurveyTeamService {
 
     private final SurveyTeamRepository surveyTeamRepository;
     private final WorkstationRepository workstationRepository;
+    private final SampleBagRepository sampleBagRepository;
 
     @Override
     @Transactional
@@ -138,6 +140,10 @@ public class SurveyTeamServiceImpl implements SurveyTeamService {
         overview.setTotalLoadCapacity(usedLoad);
         overview.setRemainingLoadCapacity(maxLoad - usedLoad);
         overview.setWorkstations(workstationDTOs);
+
+        // 在途样品袋：已登记送检、尚未出站办结。办结袋不计入在途袋数和在途袋重
+        overview.setInTransitBagCount(sampleBagRepository.countInTransitByTeamId(teamId));
+        overview.setInTransitBagWeight(sampleBagRepository.sumInTransitWeightByTeamId(teamId));
 
         return overview;
     }

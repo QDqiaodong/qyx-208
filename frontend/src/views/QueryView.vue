@@ -33,6 +33,8 @@
               {{ teamOverview.remainingLoadCapacity.toFixed(2) }}
             </span>
           </el-descriptions-item>
+          <el-descriptions-item label="在途样品袋(只)">{{ teamOverview.inTransitBagCount ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="在途袋重合计(kg)">{{ (teamOverview.inTransitBagWeight ?? 0).toFixed(2) }}</el-descriptions-item>
         </el-descriptions>
       </div>
 
@@ -44,6 +46,16 @@
           <el-table-column prop="workstationType" label="类型" />
           <el-table-column prop="adaptStation" label="适配工作站" />
           <el-table-column prop="currentTeamName" label="所属小队" />
+        </el-table>
+      </div>
+
+      <div v-if="inTransitBags.length > 0" class="result-section">
+        <h3>所属小队在途样品袋</h3>
+        <el-table :data="inTransitBags" border>
+          <el-table-column prop="bagNo" label="袋号" />
+          <el-table-column prop="memberName" label="送检队员" />
+          <el-table-column prop="bagWeight" label="袋重(kg)" />
+          <el-table-column prop="submitDate" label="送检日" />
         </el-table>
       </div>
 
@@ -63,11 +75,13 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { queryApi } from '@/api/query'
 import { memberApi, type TeamMember } from '@/api/member'
+import { sampleBagApi, type SampleBag } from '@/api/sampleBag'
 import type { Workstation } from '@/api/workstation'
 import type { TeamAssetOverview } from '@/api/team'
 
 const memberNo = ref('')
 const workstations = ref<Workstation[]>([])
+const inTransitBags = ref<SampleBag[]>([])
 const memberInfo = ref<TeamMember | null>(null)
 const teamOverview = ref<TeamAssetOverview | null>(null)
 const searchDone = ref(false)
@@ -86,11 +100,20 @@ const doSearch = async () => {
     memberInfo.value = await memberApi.getByMemberNo(memberNo.value.trim())
     workstations.value = await queryApi.getWorkstationsByMemberNo(memberNo.value.trim())
     teamOverview.value = await queryApi.getTeamAssetOverviewByMemberNo(memberNo.value.trim())
+    if (teamOverview.value?.teamId) {
+      inTransitBags.value = await sampleBagApi.getAll({
+        teamId: teamOverview.value.teamId,
+        status: 1
+      })
+    } else {
+      inTransitBags.value = []
+    }
     searchDone.value = true
     ElMessage.success('查询成功')
   } catch (err: any) {
     error.value = err.message || '查询失败'
     workstations.value = []
+    inTransitBags.value = []
     memberInfo.value = null
     teamOverview.value = null
     searchDone.value = true
@@ -100,6 +123,7 @@ const doSearch = async () => {
 const resetSearch = () => {
   memberNo.value = ''
   workstations.value = []
+  inTransitBags.value = []
   memberInfo.value = null
   teamOverview.value = null
   searchDone.value = false
