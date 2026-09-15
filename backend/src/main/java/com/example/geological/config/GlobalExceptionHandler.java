@@ -1,6 +1,7 @@
 package com.example.geological.config;
 
 import com.example.geological.dto.ResponseDTO;
+import com.example.geological.exception.MemberDepartedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,17 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    /**
+     * 队员编号存在但已停用（已离队）：按队员查资产、改挂、编辑一律拒绝。
+     * 明确报「已离队」，与编号不存在（400）区分开，且不附带任何原小队资产数据。
+     */
+    @ExceptionHandler(MemberDepartedException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ResponseDTO<Void> handleMemberDeparted(MemberDepartedException e) {
+        log.warn("Member departed: {}", e.getMessage());
+        return ResponseDTO.error(409, e.getMessage());
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)

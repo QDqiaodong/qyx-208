@@ -10,6 +10,8 @@ public class TeamAssetOverviewDTO {
     private Long teamId;
     private String teamName;
     private String teamCode;
+    /** 在职队员数（status=1）；停用离队队员不计入 */
+    private Long activeMemberCount;
     private Integer workstationCount;
     /** 随队总承重上限(kg) */
     private Double maxLoadCapacity;

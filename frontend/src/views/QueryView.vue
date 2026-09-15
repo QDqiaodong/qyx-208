@@ -59,7 +59,17 @@
         </el-table>
       </div>
 
-      <div v-if="searchDone && workstations.length === 0 && !error" class="empty-section">
+      <div v-if="searchDone && departed" class="error-section">
+        <el-alert
+          type="warning"
+          show-icon
+          :closable="false"
+          title="该队员已停用离队"
+          description="此人已不属于任何在职小队，不能再带出其原小队的操作台、承重等资产清单，也不能改挂到其他小队。"
+        />
+      </div>
+
+      <div v-if="searchDone && !departed && workstations.length === 0 && !error" class="empty-section">
         <el-empty description="该队员所属小队暂无操作台" />
       </div>
 
@@ -86,6 +96,8 @@ const memberInfo = ref<TeamMember | null>(null)
 const teamOverview = ref<TeamAssetOverview | null>(null)
 const searchDone = ref(false)
 const error = ref('')
+// 编号存在但已停用离队：明确提示已离队，且绝不带出原小队操作台/承重清单
+const departed = ref(false)
 
 const doSearch = async () => {
   if (!memberNo.value.trim()) {
@@ -95,8 +107,14 @@ const doSearch = async () => {
 
   searchDone.value = false
   error.value = ''
+  departed.value = false
+  workstations.value = []
+  inTransitBags.value = []
+  memberInfo.value = null
+  teamOverview.value = null
 
   try {
+    // 先取队员在职信息：已离队会直接抛 409，下面的资产接口一律不再调用
     memberInfo.value = await memberApi.getByMemberNo(memberNo.value.trim())
     workstations.value = await queryApi.getWorkstationsByMemberNo(memberNo.value.trim())
     teamOverview.value = await queryApi.getTeamAssetOverviewByMemberNo(memberNo.value.trim())
@@ -111,12 +129,18 @@ const doSearch = async () => {
     searchDone.value = true
     ElMessage.success('查询成功')
   } catch (err: any) {
-    error.value = err.message || '查询失败'
+    const msg: string = err.message || '查询失败'
     workstations.value = []
     inTransitBags.value = []
     memberInfo.value = null
     teamOverview.value = null
     searchDone.value = true
+    if (msg.includes('已停用离队') || msg.includes('离队')) {
+      // 已离队：专门的离队提示，不带任何资产数据
+      departed.value = true
+    } else {
+      error.value = msg
+    }
   }
 }
 
@@ -128,6 +152,7 @@ const resetSearch = () => {
   teamOverview.value = null
   searchDone.value = false
   error.value = ''
+  departed.value = false
 }
 </script>
 

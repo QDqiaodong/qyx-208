@@ -18,6 +18,10 @@
             </div>
             <div class="stats">
               <div class="stat-item">
+                <span class="stat-value member-stat">{{ overview.activeMemberCount ?? 0 }}</span>
+                <span class="stat-label">在职队员数</span>
+              </div>
+              <div class="stat-item">
                 <span class="stat-value">{{ overview.workstationCount }}</span>
                 <span class="stat-label">在用操作台数量</span>
               </div>
@@ -160,6 +164,10 @@ onMounted(loadData)
 
 .remaining-zero {
   color: #f56c6c;
+}
+
+.member-stat {
+  color: #2f855a;
 }
 
 .bag-stat .stat-value {

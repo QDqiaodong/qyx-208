@@ -7,6 +7,7 @@ import com.example.geological.entity.SurveyTeam;
 import com.example.geological.entity.Workstation;
 import com.example.geological.repository.SampleBagRepository;
 import com.example.geological.repository.SurveyTeamRepository;
+import com.example.geological.repository.TeamMemberRepository;
 import com.example.geological.repository.WorkstationRepository;
 import com.example.geological.service.SurveyTeamService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class SurveyTeamServiceImpl implements SurveyTeamService {
     private final SurveyTeamRepository surveyTeamRepository;
     private final WorkstationRepository workstationRepository;
     private final SampleBagRepository sampleBagRepository;
+    private final TeamMemberRepository teamMemberRepository;
 
     @Override
     @Transactional
@@ -133,6 +135,8 @@ public class SurveyTeamServiceImpl implements SurveyTeamService {
         overview.setTeamId(team.getId());
         overview.setTeamName(team.getTeamName());
         overview.setTeamCode(team.getTeamCode());
+        // 在职人数只统计 status=1 的队员；停用离队者立即从小队档案人数中剔除
+        overview.setActiveMemberCount(teamMemberRepository.countActiveByTeamId(team.getId()));
         overview.setWorkstationCount(workstations.size());
         double usedLoad = totalLoadCapacity != null ? totalLoadCapacity : 0.0;
         double maxLoad = team.getMaxLoadCapacity() != null ? team.getMaxLoadCapacity() : 0.0;

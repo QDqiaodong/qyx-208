@@ -14,6 +14,8 @@ export interface TeamAssetOverview {
   teamId: number
   teamName: string
   teamCode: string
+  /** 在职队员数（停用离队者不计入） */
+  activeMemberCount: number
   workstationCount: number
   maxLoadCapacity: number
   totalLoadCapacity: number
