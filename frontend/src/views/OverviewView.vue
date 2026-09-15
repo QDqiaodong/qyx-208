@@ -19,13 +19,31 @@
             <div class="stats">
               <div class="stat-item">
                 <span class="stat-value">{{ overview.workstationCount }}</span>
-                <span class="stat-label">操作台数量</span>
+                <span class="stat-label">在用操作台数量</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ overview.maxLoadCapacity.toFixed(2) }}</span>
+                <span class="stat-label">承重上限(kg)</span>
               </div>
               <div class="stat-item">
                 <span class="stat-value">{{ overview.totalLoadCapacity.toFixed(2) }}</span>
-                <span class="stat-label">总承重(kg)</span>
+                <span class="stat-label">已用承重(kg)</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value" :class="{ 'remaining-zero': overview.remainingLoadCapacity <= 0 }">
+                  {{ overview.remainingLoadCapacity.toFixed(2) }}
+                </span>
+                <span class="stat-label">剩余承重(kg)</span>
               </div>
             </div>
+          </div>
+
+          <div class="usage-bar">
+            <el-progress
+              :percentage="usagePercentage(overview)"
+              :status="usagePercentage(overview) >= 100 ? 'exception' : usagePercentage(overview) >= 80 ? 'warning' : 'success'"
+              :stroke-width="14"
+            />
           </div>
 
           <div v-if="overview.workstations.length > 0" class="workstation-list">
@@ -53,6 +71,13 @@ import { ElMessage } from 'element-plus'
 import { teamApi, type TeamAssetOverview } from '@/api/team'
 
 const overviews = ref<TeamAssetOverview[]>([])
+
+const usagePercentage = (overview: TeamAssetOverview) => {
+  if (!overview.maxLoadCapacity || overview.maxLoadCapacity <= 0) {
+    return overview.totalLoadCapacity > 0 ? 100 : 0
+  }
+  return Math.min(100, Math.round((overview.totalLoadCapacity / overview.maxLoadCapacity) * 100))
+}
 
 const loadData = async () => {
   try {
@@ -123,6 +148,14 @@ onMounted(loadData)
 .stat-label {
   font-size: 12px;
   color: #999;
+}
+
+.remaining-zero {
+  color: #f56c6c;
+}
+
+.usage-bar {
+  margin-bottom: 15px;
 }
 
 .workstation-list {

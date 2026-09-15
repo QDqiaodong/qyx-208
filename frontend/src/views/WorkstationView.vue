@@ -4,8 +4,9 @@
       <div class="toolbar">
         <el-button type="primary" @click="openForm">新增操作台</el-button>
         <el-button @click="refreshData">刷新</el-button>
+        <el-checkbox v-model="showInactive" @change="loadData">显示已停用</el-checkbox>
       </div>
-      <el-table :data="workstations" border>
+      <el-table :data="displayRows" border>
         <el-table-column prop="workstationNo" label="操作台编号" />
         <el-table-column prop="loadCapacity" label="承重(kg)" />
         <el-table-column prop="workstationType" label="类型" />
@@ -15,12 +16,25 @@
             <span>{{ row.currentTeamName || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作">
+        <el-table-column label="状态" width="80">
           <template #default="{ row }">
-            <el-button size="small" @click="openForm(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="deleteWorkstation(row.id)">删除</el-button>
-            <el-button size="small" type="warning" @click="openTransfer(row)">转移</el-button>
-            <el-button size="small" @click="viewTransferHistory(row.id)">变更记录</el-button>
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+              {{ row.status === 1 ? '在用' : '停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="320">
+          <template #default="{ row }">
+            <template v-if="row.status === 1">
+              <el-button size="small" @click="openForm(row)">编辑</el-button>
+              <el-button size="small" type="danger" @click="deleteWorkstation(row.id)">停用</el-button>
+              <el-button size="small" type="warning" @click="openTransfer(row)">转移</el-button>
+              <el-button size="small" @click="viewTransferHistory(row.id)">变更记录</el-button>
+            </template>
+            <template v-else>
+              <el-button size="small" type="success" @click="restoreWorkstation(row.id)">恢复在用</el-button>
+              <el-button size="small" @click="viewTransferHistory(row.id)">变更记录</el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -41,8 +55,13 @@
           <el-input v-model="form.adaptStation" />
         </el-form-item>
         <el-form-item label="所属小队">
-          <el-select v-model="form.currentTeamId" placeholder="选择小队">
-            <el-option v-for="team in teams" :key="team.id" :label="team.teamName" :value="team.id" />
+          <el-select v-model="form.currentTeamId" placeholder="选择小队" clearable>
+            <el-option
+              v-for="team in teams"
+              :key="team.id"
+              :label="teamOptionLabel(team)"
+              :value="team.id"
+            />
           </el-select>
         </el-form-item>
       </el-form>
@@ -53,10 +72,22 @@
     </el-dialog>
 
     <el-dialog v-model="transferVisible" title="转移操作台" width="500px">
+      <el-alert
+        v-if="transferringRow"
+        type="info"
+        :closable="false"
+        :title="`本台承重 ${transferringRow.loadCapacity} kg，目标小队剩余承重不足时将转移失败`"
+        style="margin-bottom: 15px"
+      />
       <el-form :model="transferForm" label-width="100px">
         <el-form-item label="目标小队" required>
           <el-select v-model="transferForm.toTeamId" placeholder="选择目标小队">
-            <el-option v-for="team in teams" :key="team.id" :label="team.teamName" :value="team.id" />
+            <el-option
+              v-for="team in teams"
+              :key="team.id"
+              :label="teamOptionLabel(team)"
+              :value="team.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="转移原因">
@@ -89,19 +120,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { workstationApi, type Workstation, type TransferDTO } from '@/api/workstation'
 import { teamApi, type SurveyTeam } from '@/api/team'
 
 const workstations = ref<Workstation[]>([])
+const inactiveWorkstations = ref<Workstation[]>([])
 const teams = ref<SurveyTeam[]>([])
+const teamRemaining = ref<Record<number, number>>({})
+const showInactive = ref(false)
 const formVisible = ref(false)
 const transferVisible = ref(false)
 const historyVisible = ref(false)
 const transferHistory = ref<any[]>([])
 const editingId = ref<number | null>(null)
-const transferringId = ref<number | null>(null)
+const transferringRow = ref<Workstation | null>(null)
 
 const form = ref({
   workstationNo: '',
@@ -118,9 +152,39 @@ const transferForm = ref({
   operator: ''
 })
 
+const displayRows = computed(() => {
+  return showInactive.value ? [...workstations.value, ...inactiveWorkstations.value] : workstations.value
+})
+
+const teamOptionLabel = (team: SurveyTeam) => {
+  const remaining = teamRemaining.value[team.id]
+  return remaining !== undefined
+    ? `${team.teamName}（剩余承重 ${remaining.toFixed(2)} kg）`
+    : team.teamName
+}
+
+const loadTeamRemaining = async () => {
+  try {
+    const overviews = await teamApi.getAllTeamAssetOverview()
+    const map: Record<number, number> = {}
+    overviews.forEach(o => {
+      map[o.teamId] = o.remainingLoadCapacity
+    })
+    teamRemaining.value = map
+  } catch {
+    teamRemaining.value = {}
+  }
+}
+
 const loadData = async () => {
   workstations.value = await workstationApi.getAll()
   teams.value = await teamApi.getAll()
+  if (showInactive.value) {
+    inactiveWorkstations.value = await workstationApi.getInactive()
+  } else {
+    inactiveWorkstations.value = []
+  }
+  await loadTeamRemaining()
 }
 
 const openForm = (row?: Workstation) => {
@@ -165,21 +229,32 @@ const saveWorkstation = async () => {
 const deleteWorkstation = async (id: number) => {
   try {
     await workstationApi.delete(id)
-    ElMessage.success('删除成功')
+    ElMessage.success('已停用')
     await loadData()
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    ElMessage.error(error.message || '停用失败')
   }
 }
 
-const openTransfer = (row: Workstation) => {
-  transferringId.value = row.id
+const restoreWorkstation = async (id: number) => {
+  try {
+    await workstationApi.restore(id)
+    ElMessage.success('已恢复在用')
+    await loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '恢复失败')
+  }
+}
+
+const openTransfer = async (row: Workstation) => {
+  transferringRow.value = row
   transferForm.value = {
     workstationId: row.id,
     toTeamId: 0,
     transferReason: '',
     operator: ''
   }
+  await loadTeamRemaining()
   transferVisible.value = true
 }
 
@@ -215,6 +290,7 @@ onMounted(loadData)
 .toolbar {
   display: flex;
   gap: 10px;
+  align-items: center;
   margin-bottom: 20px;
 }
 </style>

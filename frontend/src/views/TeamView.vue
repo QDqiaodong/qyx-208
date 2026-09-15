@@ -10,6 +10,7 @@
         <el-table-column prop="teamName" label="小队名称" />
         <el-table-column prop="leaderName" label="队长" />
         <el-table-column prop="leaderPhone" label="联系电话" />
+        <el-table-column prop="maxLoadCapacity" label="随队总承重上限(kg)" />
         <el-table-column prop="description" label="备注" />
         <el-table-column label="操作">
           <template #default="{ row }">
@@ -21,7 +22,7 @@
     </el-card>
 
     <el-dialog v-model="formVisible" title="小队信息" width="500px">
-      <el-form :model="form" label-width="100px">
+      <el-form :model="form" label-width="160px">
         <el-form-item label="小队编码" required>
           <el-input v-model="form.teamCode" />
         </el-form-item>
@@ -33,6 +34,9 @@
         </el-form-item>
         <el-form-item label="联系电话">
           <el-input v-model="form.leaderPhone" />
+        </el-form-item>
+        <el-form-item label="随队总承重上限(kg)" required>
+          <el-input-number v-model="form.maxLoadCapacity" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input type="textarea" v-model="form.description" />
@@ -60,7 +64,8 @@ const form = ref({
   teamName: '',
   leaderName: '',
   leaderPhone: '',
-  description: ''
+  description: '',
+  maxLoadCapacity: 0
 })
 
 const loadData = async () => {
@@ -75,7 +80,8 @@ const openForm = (row?: SurveyTeam) => {
       teamName: row.teamName,
       leaderName: row.leaderName,
       leaderPhone: row.leaderPhone,
-      description: row.description
+      description: row.description,
+      maxLoadCapacity: row.maxLoadCapacity
     }
   } else {
     editingId.value = null
@@ -84,7 +90,8 @@ const openForm = (row?: SurveyTeam) => {
       teamName: '',
       leaderName: '',
       leaderPhone: '',
-      description: ''
+      description: '',
+      maxLoadCapacity: 0
     }
   }
   formVisible.value = true

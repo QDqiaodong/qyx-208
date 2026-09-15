@@ -35,6 +35,12 @@ public class SurveyTeam {
     @Column(name = "description", length = 500)
     private String description;
 
+    /**
+     * 随队总承重上限(kg)，后勤核定，只能在小队档案中单独修改
+     */
+    @Column(name = "max_load_capacity", nullable = false)
+    private Double maxLoadCapacity = 0.0;
+
     @Column(name = "status", nullable = false)
     private Integer status = 1;
 

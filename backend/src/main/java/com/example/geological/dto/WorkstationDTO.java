@@ -22,4 +22,6 @@ public class WorkstationDTO {
     private Long currentTeamId;
 
     private String currentTeamName;
+
+    private Integer status;
 }

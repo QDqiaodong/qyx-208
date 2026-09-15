@@ -78,6 +78,7 @@ public class SurveyTeamController {
         dto.setLeaderName(team.getLeaderName());
         dto.setLeaderPhone(team.getLeaderPhone());
         dto.setDescription(team.getDescription());
+        dto.setMaxLoadCapacity(team.getMaxLoadCapacity());
         return dto;
     }
 }

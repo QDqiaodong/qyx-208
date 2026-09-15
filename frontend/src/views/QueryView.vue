@@ -22,6 +22,20 @@
         </el-descriptions>
       </div>
 
+      <div v-if="teamOverview" class="overview-info">
+        <h3>所属小队承重情况</h3>
+        <el-descriptions :column="4" border>
+          <el-descriptions-item label="在用操作台数量">{{ teamOverview.workstationCount }}</el-descriptions-item>
+          <el-descriptions-item label="承重上限(kg)">{{ teamOverview.maxLoadCapacity.toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item label="已用承重(kg)">{{ teamOverview.totalLoadCapacity.toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item label="剩余承重(kg)">
+            <span :style="{ color: teamOverview.remainingLoadCapacity <= 0 ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
+              {{ teamOverview.remainingLoadCapacity.toFixed(2) }}
+            </span>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+
       <div v-if="workstations.length > 0" class="result-section">
         <h3>所属小队操作台列表</h3>
         <el-table :data="workstations" border>
@@ -50,10 +64,12 @@ import { ElMessage } from 'element-plus'
 import { queryApi } from '@/api/query'
 import { memberApi, type TeamMember } from '@/api/member'
 import type { Workstation } from '@/api/workstation'
+import type { TeamAssetOverview } from '@/api/team'
 
 const memberNo = ref('')
 const workstations = ref<Workstation[]>([])
 const memberInfo = ref<TeamMember | null>(null)
+const teamOverview = ref<TeamAssetOverview | null>(null)
 const searchDone = ref(false)
 const error = ref('')
 
@@ -69,12 +85,14 @@ const doSearch = async () => {
   try {
     memberInfo.value = await memberApi.getByMemberNo(memberNo.value.trim())
     workstations.value = await queryApi.getWorkstationsByMemberNo(memberNo.value.trim())
+    teamOverview.value = await queryApi.getTeamAssetOverviewByMemberNo(memberNo.value.trim())
     searchDone.value = true
     ElMessage.success('查询成功')
   } catch (err: any) {
     error.value = err.message || '查询失败'
     workstations.value = []
     memberInfo.value = null
+    teamOverview.value = null
     searchDone.value = true
   }
 }
@@ -83,6 +101,7 @@ const resetSearch = () => {
   memberNo.value = ''
   workstations.value = []
   memberInfo.value = null
+  teamOverview.value = null
   searchDone.value = false
   error.value = ''
 }
@@ -104,6 +123,16 @@ const resetSearch = () => {
 }
 
 .member-info h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.overview-info {
+  margin-bottom: 20px;
+}
+
+.overview-info h3 {
   font-size: 16px;
   margin-bottom: 10px;
   color: #333;

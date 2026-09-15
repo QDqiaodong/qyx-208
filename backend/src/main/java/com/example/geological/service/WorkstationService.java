@@ -15,11 +15,15 @@ public interface WorkstationService {
 
     void delete(Long id);
 
+    Workstation restore(Long id);
+
     Workstation findById(Long id);
 
     Workstation findByNo(String workstationNo);
 
     List<Workstation> findAll();
+
+    List<Workstation> findInactive();
 
     List<Workstation> findByTeamId(Long teamId);
 

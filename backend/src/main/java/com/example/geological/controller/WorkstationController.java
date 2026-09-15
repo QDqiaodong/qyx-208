@@ -29,6 +29,15 @@ public class WorkstationController {
         return ResponseDTO.success(dtos);
     }
 
+    @GetMapping("/inactive")
+    public ResponseDTO<List<WorkstationDTO>> getInactive() {
+        List<Workstation> workstations = workstationService.findInactive();
+        List<WorkstationDTO> dtos = workstations.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        return ResponseDTO.success(dtos);
+    }
+
     @GetMapping("/{id}")
     public ResponseDTO<WorkstationDTO> getById(@PathVariable Long id) {
         Workstation workstation = workstationService.findById(id);
@@ -68,6 +77,12 @@ public class WorkstationController {
         return ResponseDTO.success(null);
     }
 
+    @PutMapping("/{id}/restore")
+    public ResponseDTO<WorkstationDTO> restore(@PathVariable Long id) {
+        Workstation workstation = workstationService.restore(id);
+        return ResponseDTO.success("已恢复在用", convertToDTO(workstation));
+    }
+
     @PostMapping("/transfer")
     public ResponseDTO<Void> transfer(@Valid @RequestBody TransferDTO dto) {
         workstationService.transfer(dto);
@@ -93,6 +108,7 @@ public class WorkstationController {
         dto.setLoadCapacity(workstation.getLoadCapacity() != null ? workstation.getLoadCapacity().toString() : null);
         dto.setWorkstationType(workstation.getWorkstationType());
         dto.setAdaptStation(workstation.getAdaptStation());
+        dto.setStatus(workstation.getStatus());
         if (workstation.getCurrentTeam() != null) {
             dto.setCurrentTeamId(workstation.getCurrentTeam().getId());
             dto.setCurrentTeamName(workstation.getCurrentTeam().getTeamName());

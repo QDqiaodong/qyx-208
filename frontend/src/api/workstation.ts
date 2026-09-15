@@ -8,6 +8,7 @@ export interface Workstation {
   adaptStation: string
   currentTeamId: number | null
   currentTeamName?: string | null
+  status?: number
 }
 
 export interface TransferDTO {
@@ -20,6 +21,9 @@ export interface TransferDTO {
 export const workstationApi = {
   getAll(): Promise<Workstation[]> {
     return axios.get('/workstations')
+  },
+  getInactive(): Promise<Workstation[]> {
+    return axios.get('/workstations/inactive')
   },
   getById(id: number): Promise<Workstation> {
     return axios.get(`/workstations/${id}`)
@@ -38,6 +42,9 @@ export const workstationApi = {
   },
   delete(id: number): Promise<void> {
     return axios.delete(`/workstations/${id}`)
+  },
+  restore(id: number): Promise<Workstation> {
+    return axios.put(`/workstations/${id}/restore`)
   },
   transfer(data: TransferDTO): Promise<void> {
     return axios.post('/workstations/transfer', data)

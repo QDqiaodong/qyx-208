@@ -7,6 +7,7 @@ export interface SurveyTeam {
   leaderName: string
   leaderPhone: string
   description: string
+  maxLoadCapacity: number
 }
 
 export interface TeamAssetOverview {
@@ -14,7 +15,9 @@ export interface TeamAssetOverview {
   teamName: string
   teamCode: string
   workstationCount: number
+  maxLoadCapacity: number
   totalLoadCapacity: number
+  remainingLoadCapacity: number
   workstations: any[]
 }
 

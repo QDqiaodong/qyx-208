@@ -3,7 +3,6 @@ package com.example.geological.controller;
 import com.example.geological.dto.ResponseDTO;
 import com.example.geological.dto.TeamAssetOverviewDTO;
 import com.example.geological.dto.WorkstationDTO;
-import com.example.geological.entity.SurveyTeam;
 import com.example.geological.entity.TeamMember;
 import com.example.geological.entity.Workstation;
 import com.example.geological.service.SurveyTeamService;
@@ -26,28 +25,7 @@ public class QueryController {
 
     @GetMapping("/team-asset-overview")
     public ResponseDTO<List<TeamAssetOverviewDTO>> getAllTeamAssetOverview() {
-        List<SurveyTeam> teams = teamService.findAll();
-        List<TeamAssetOverviewDTO> overviews = teams.stream()
-                .map(team -> {
-                    List<Workstation> workstations = workstationService.findByTeamId(team.getId());
-                    Double totalLoadCapacity = workstations.stream()
-                            .filter(w -> w.getLoadCapacity() != null)
-                            .mapToDouble(Workstation::getLoadCapacity)
-                            .sum();
-                    List<WorkstationDTO> workstationDTOs = workstations.stream()
-                            .map(this::convertToDTO)
-                            .collect(Collectors.toList());
-                    TeamAssetOverviewDTO overview = new TeamAssetOverviewDTO();
-                    overview.setTeamId(team.getId());
-                    overview.setTeamName(team.getTeamName());
-                    overview.setTeamCode(team.getTeamCode());
-                    overview.setWorkstationCount(workstations.size());
-                    overview.setTotalLoadCapacity(totalLoadCapacity);
-                    overview.setWorkstations(workstationDTOs);
-                    return overview;
-                })
-                .collect(Collectors.toList());
-        return ResponseDTO.success(overviews);
+        return ResponseDTO.success(teamService.getAllTeamAssetOverview());
     }
 
     @GetMapping("/member/{memberNo}/workstations")
@@ -69,24 +47,7 @@ public class QueryController {
         if (member.getTeam() == null) {
             return ResponseDTO.success(null);
         }
-        List<Workstation> workstations = workstationService.findByTeamId(member.getTeam().getId());
-        Double totalLoadCapacity = workstations.stream()
-                .mapToDouble(Workstation::getLoadCapacity)
-                .sum();
-
-        List<WorkstationDTO> workstationDTOs = workstations.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-
-        TeamAssetOverviewDTO overview = new TeamAssetOverviewDTO();
-        overview.setTeamId(member.getTeam().getId());
-        overview.setTeamName(member.getTeam().getTeamName());
-        overview.setTeamCode(member.getTeam().getTeamCode());
-        overview.setWorkstationCount(workstations.size());
-        overview.setTotalLoadCapacity(totalLoadCapacity);
-        overview.setWorkstations(workstationDTOs);
-
-        return ResponseDTO.success(overview);
+        return ResponseDTO.success(teamService.getTeamAssetOverview(member.getTeam().getId()));
     }
 
     private WorkstationDTO convertToDTO(Workstation workstation) {
@@ -96,6 +57,7 @@ public class QueryController {
         dto.setLoadCapacity(workstation.getLoadCapacity() != null ? workstation.getLoadCapacity().toString() : null);
         dto.setWorkstationType(workstation.getWorkstationType());
         dto.setAdaptStation(workstation.getAdaptStation());
+        dto.setStatus(workstation.getStatus());
         if (workstation.getCurrentTeam() != null) {
             dto.setCurrentTeamId(workstation.getCurrentTeam().getId());
             dto.setCurrentTeamName(workstation.getCurrentTeam().getTeamName());

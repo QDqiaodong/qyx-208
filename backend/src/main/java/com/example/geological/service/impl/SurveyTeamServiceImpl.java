@@ -11,6 +11,7 @@ import com.example.geological.service.SurveyTeamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -43,14 +44,15 @@ public class SurveyTeamServiceImpl implements SurveyTeamService {
         team.setLeaderName(dto.getLeaderName());
         team.setLeaderPhone(dto.getLeaderPhone());
         team.setDescription(dto.getDescription());
+        team.setMaxLoadCapacity(dto.getMaxLoadCapacity());
 
         return surveyTeamRepository.save(team);
     }
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public SurveyTeam update(Long id, SurveyTeamDTO dto) {
-        SurveyTeam team = surveyTeamRepository.findById(id)
+        SurveyTeam team = surveyTeamRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("小队不存在: " + id));
 
         if (!team.getTeamCode().equals(dto.getTeamCode())) {
@@ -68,6 +70,17 @@ public class SurveyTeamServiceImpl implements SurveyTeamService {
                     });
             team.setTeamName(dto.getTeamName());
         }
+
+        // 上限只能调低到不低于当前在用台承重合计，否则本次修改整体失败，
+        // 不能留下账面已经超限的小队
+        Double used = workstationRepository.sumLoadCapacityByTeamId(id);
+        double usedLoad = used != null ? used : 0.0;
+        if (dto.getMaxLoadCapacity() < usedLoad) {
+            throw new IllegalArgumentException(String.format(
+                    "随队总承重上限不能低于当前已用承重：小队[%s]当前已用 %.2f kg，新上限 %.2f kg，低于已用 %.2f kg，本次修改未落账",
+                    team.getTeamName(), usedLoad, dto.getMaxLoadCapacity(), usedLoad - dto.getMaxLoadCapacity()));
+        }
+        team.setMaxLoadCapacity(dto.getMaxLoadCapacity());
 
         team.setLeaderName(dto.getLeaderName());
         team.setLeaderPhone(dto.getLeaderPhone());
@@ -119,7 +132,11 @@ public class SurveyTeamServiceImpl implements SurveyTeamService {
         overview.setTeamName(team.getTeamName());
         overview.setTeamCode(team.getTeamCode());
         overview.setWorkstationCount(workstations.size());
-        overview.setTotalLoadCapacity(totalLoadCapacity != null ? totalLoadCapacity : 0.0);
+        double usedLoad = totalLoadCapacity != null ? totalLoadCapacity : 0.0;
+        double maxLoad = team.getMaxLoadCapacity() != null ? team.getMaxLoadCapacity() : 0.0;
+        overview.setMaxLoadCapacity(maxLoad);
+        overview.setTotalLoadCapacity(usedLoad);
+        overview.setRemainingLoadCapacity(maxLoad - usedLoad);
         overview.setWorkstations(workstationDTOs);
 
         return overview;
