@@ -22,6 +22,10 @@
             <el-icon><component :is="Icons.Box" /></el-icon>
             <span>样品袋送检登记</span>
           </el-menu-item>
+          <el-menu-item index="fuel">
+            <el-icon><component :is="Icons.Odometer" /></el-icon>
+            <span>油料领用台账</span>
+          </el-menu-item>
           <el-menu-item index="query">
             <el-icon><component :is="Icons.Search" /></el-icon>
             <span>队员查询资产</span>
@@ -41,6 +45,7 @@
           <TeamView v-else-if="activeTab === 'team'" />
           <MemberView v-else-if="activeTab === 'member'" />
           <SampleBagView v-else-if="activeTab === 'sample-bag'" />
+          <FuelView v-else-if="activeTab === 'fuel'" />
           <QueryView v-else-if="activeTab === 'query'" />
           <OverviewView v-else-if="activeTab === 'overview'" />
         </el-main>
@@ -51,11 +56,12 @@
 
 <script setup lang="ts">
 import { ref, computed, markRaw } from 'vue'
-import { Monitor, UserFilled, User, Search, DataAnalysis, Box } from '@element-plus/icons-vue'
+import { Monitor, UserFilled, User, Search, DataAnalysis, Box, Odometer } from '@element-plus/icons-vue'
 import WorkstationView from './views/WorkstationView.vue'
 import TeamView from './views/TeamView.vue'
 import MemberView from './views/MemberView.vue'
 import SampleBagView from './views/SampleBagView.vue'
+import FuelView from './views/FuelView.vue'
 import QueryView from './views/QueryView.vue'
 import OverviewView from './views/OverviewView.vue'
 
@@ -65,7 +71,8 @@ const Icons = {
   User: markRaw(User),
   Search: markRaw(Search),
   DataAnalysis: markRaw(DataAnalysis),
-  Box: markRaw(Box)
+  Box: markRaw(Box),
+  Odometer: markRaw(Odometer)
 }
 
 const activeTab = ref('workstation')
@@ -76,6 +83,7 @@ const pageTitle = computed(() => {
     team: '勘测小队管理',
     member: '队员管理',
     'sample-bag': '样品袋送检登记',
+    fuel: '油料领用台账',
     query: '按队员编号查询资产',
     overview: '小队资产总览'
   }
