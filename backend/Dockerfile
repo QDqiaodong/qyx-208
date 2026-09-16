@@ -7,7 +7,7 @@ RUN mvn dependency:go-offline -Dmaven.repo.local=/root/.m2/repository -Dmaven.wa
 COPY src ./src
 RUN mvn clean package -DskipTests -Dmaven.repo.local=/root/.m2/repository -Dmaven.wagon.http.retryHandler.count=10
 
-FROM ${DOCKER_REGISTRY:-docker.io}/openjdk:17-jdk-slim
+FROM ${DOCKER_REGISTRY:-docker.io}/eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
