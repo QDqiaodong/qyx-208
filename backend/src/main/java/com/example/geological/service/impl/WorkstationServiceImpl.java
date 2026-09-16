@@ -8,6 +8,7 @@ import com.example.geological.entity.WorkstationTransfer;
 import com.example.geological.repository.SurveyTeamRepository;
 import com.example.geological.repository.WorkstationRepository;
 import com.example.geological.repository.WorkstationTransferRepository;
+import com.example.geological.service.TransferNotificationService;
 import com.example.geological.service.WorkstationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class WorkstationServiceImpl implements WorkstationService {
     private final WorkstationRepository workstationRepository;
     private final SurveyTeamRepository surveyTeamRepository;
     private final WorkstationTransferRepository transferRepository;
+    private final TransferNotificationService transferNotificationService;
     private final RedisTemplate<String, Object> redisTemplate;
 
     private static final String CACHE_KEY_PREFIX = "workstation:loadcapacity:";
@@ -212,17 +214,23 @@ public class WorkstationServiceImpl implements WorkstationService {
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void transfer(TransferDTO dto) {
-        Workstation workstation = workstationRepository.findById(dto.getWorkstationId())
+        Workstation workstation = workstationRepository.findByIdForUpdate(dto.getWorkstationId())
                 .orElseThrow(() -> new IllegalArgumentException("操作台不存在: " + dto.getWorkstationId()));
 
         if (!Objects.equals(workstation.getStatus(), 1)) {
             throw new IllegalArgumentException("操作台已停用，仍记在原小队名下，需先恢复在用才能改挂到其他小队");
         }
 
+        SurveyTeam fromTeam = workstation.getCurrentTeam();
+        if (fromTeam == null) {
+            throw new IllegalArgumentException("操作台尚未归属小队，不能办理转队");
+        }
+        if (Objects.equals(fromTeam.getId(), dto.getToTeamId())) {
+            throw new IllegalArgumentException("目标小队与原小队相同，无需转队");
+        }
+
         SurveyTeam toTeam = lockTeam(dto.getToTeamId());
         assertWithinTeamLimit(toTeam, workstation, workstation.getLoadCapacity());
-
-        SurveyTeam fromTeam = workstation.getCurrentTeam();
 
         WorkstationTransfer transfer = new WorkstationTransfer();
         transfer.setWorkstation(workstation);
@@ -233,7 +241,11 @@ public class WorkstationServiceImpl implements WorkstationService {
 
         workstation.setCurrentTeam(toTeam);
         workstationRepository.save(workstation);
-        transferRepository.save(transfer);
+        WorkstationTransfer savedTransfer = transferRepository.save(transfer);
+
+        // 通知与转队落账在同一个事务里：只有停用、超限等校验全部通过后才会到这里；
+        // 通知落库失败也会整体回滚，不会留下转队成功但通知缺失的半笔记录。
+        transferNotificationService.createTransferNotifications(savedTransfer);
 
         cacheLoadCapacity(workstation.getWorkstationNo(), workstation.getLoadCapacity());
     }

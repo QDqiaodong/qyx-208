@@ -1,7 +1,9 @@
 package com.example.geological.repository;
 
 import com.example.geological.entity.Workstation;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,6 +15,10 @@ import java.util.Optional;
 public interface WorkstationRepository extends JpaRepository<Workstation, Long> {
 
     Optional<Workstation> findByWorkstationNo(String workstationNo);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT w FROM Workstation w WHERE w.id = :id")
+    Optional<Workstation> findByIdForUpdate(@Param("id") Long id);
 
     List<Workstation> findByCurrentTeamId(Long teamId);
 
