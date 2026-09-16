@@ -2,6 +2,7 @@ package com.example.geological.config;
 
 import com.example.geological.dto.ResponseDTO;
 import com.example.geological.exception.MemberDepartedException;
+import com.example.geological.exception.RainReadingConflictException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -36,15 +37,33 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 唯一约束兜底：样品袋「同小队+同送检日+同袋号」并发时，
-     * 若唯一索引冲突在 Service 捕获之外冒出，仍返回明确的 400 业务错误，
+     * 雨量读数并发冲突：两名值班抢着改/作废同一桶同一自然日的读数，
+     * 先提交的生效，后提交的版本号对不上——明确 409，提示刷新后重试。
+     */
+    @ExceptionHandler(RainReadingConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ResponseDTO<Void> handleRainReadingConflict(RainReadingConflictException e) {
+        log.warn("Rain reading conflict: {}", e.getMessage());
+        return ResponseDTO.error(409, e.getMessage());
+    }
+
+    /**
+     * 唯一约束兜底：样品袋「同小队+同送检日+同袋号」、雨量读数「同桶+同自然日+有效」
+     * 并发时，若唯一索引冲突在 Service 捕获之外冒出，仍返回明确的 400 业务错误，
      * 而不是笼统的 500。
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseDTO<Void> handleDataIntegrityViolation(DataIntegrityViolationException e) {
         log.warn("Data integrity violation: {}", e.getMessage());
-        return ResponseDTO.error(400, "登记冲突：该小队、该送检日、该袋号已存在登记（同袋已在途/办结），本次提交失败，不允许重复落账");
+        String detail = String.valueOf(e.getMessage());
+        if (detail.contains("uk_rain_reading_valid_bucket_day")) {
+            return ResponseDTO.error(400, "登记冲突：该收集桶在该自然日已存在一条有效读数（同桶同日只留一条有效读数），本次提交失败，不允许重复落账");
+        }
+        if (detail.contains("uk_sample_bag")) {
+            return ResponseDTO.error(400, "登记冲突：该小队、该送检日、该袋号已存在登记（同袋已在途/办结），本次提交失败，不允许重复落账");
+        }
+        return ResponseDTO.error(400, "数据冲突：与已有记录重复（唯一约束校验未通过），本次提交失败");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
