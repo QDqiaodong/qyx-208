@@ -27,6 +27,13 @@ public class Workstation {
     @Column(name = "workstation_type", length = 100)
     private String workstationType;
 
+    /**
+     * 适配工作站名字。
+     * 占用规则：同一时刻同一站名只允许一台在用(status=1)操作台占用。
+     * 停用台、空站名不占站。并发放置由生成列 active_adapt_station 上的唯一索引
+     * uk_workstation_active_adapt_station 兜底（见 WorkstationSchemaInitializer），
+     * Service 层保存前另做占用预检。
+     */
     @Column(name = "adapt_station", length = 200)
     private String adaptStation;
 

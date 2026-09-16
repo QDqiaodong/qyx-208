@@ -16,6 +16,14 @@ public interface WorkstationRepository extends JpaRepository<Workstation, Long> 
 
     Optional<Workstation> findByWorkstationNo(String workstationNo);
 
+    /**
+     * 查询某一适配工作站名字当前被哪台在用操作台占用（status=1）。
+     * 停用台与空站名不占站；excludeId 用于编辑/恢复时排除自身。
+     */
+    @Query("SELECT w FROM Workstation w WHERE w.adaptStation = :adaptStation AND w.status = 1 AND w.id <> :excludeId")
+    Optional<Workstation> findActiveOccupant(@Param("adaptStation") String adaptStation,
+                                             @Param("excludeId") Long excludeId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT w FROM Workstation w WHERE w.id = :id")
     Optional<Workstation> findByIdForUpdate(@Param("id") Long id);

@@ -12,6 +12,7 @@ import com.example.geological.service.TransferNotificationService;
 import com.example.geological.service.WorkstationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -44,6 +45,62 @@ public class WorkstationServiceImpl implements WorkstationService {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("承重格式不正确: " + loadCapacityStr);
         }
+    }
+
+    /**
+     * 适配工作站名字归一化：去掉首尾空白；空白串按「未填站名」处理（落 NULL，即释放占用）。
+     */
+    private String normalizeAdaptStation(String adaptStation) {
+        if (adaptStation == null) {
+            return null;
+        }
+        String trimmed = adaptStation.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * 占用预检：在用操作台要占用某站名时，先看该站是否已被另一台在用操作台占着。
+     * 停用台/空站名不占站，不参与校验；excludeId 用于编辑、恢复时排除自身。
+     * 预检给出明确报错；两台几乎同时保存时由条件唯一索引做最终裁决（见 saveWithStationGuard）。
+     */
+    private void assertStationNotOccupied(String adaptStation, Long excludeId) {
+        if (adaptStation == null) {
+            return;
+        }
+        Long selfId = excludeId != null ? excludeId : -1L;
+        workstationRepository.findActiveOccupant(adaptStation, selfId)
+                .ifPresent(occupant -> {
+                    throw new IllegalArgumentException(String.format(
+                            "适配工作站[%s]已被在用操作台[%s]占用，同一时刻只允许一台在用操作台占用该站，本次保存失败，原占用保持不变",
+                            adaptStation, occupant.getWorkstationNo()));
+                });
+    }
+
+    /**
+     * 保存并立即 flush，使条件唯一索引 uk_workstation_active_adapt_station 的冲突
+     * 在本事务内抛出。两人几乎同时把两台在用台改成同一站名时，先提交的成功，
+     * 后到的在此撞上唯一索引：翻译成明确业务错误，整笔事务回滚，绝不让两台同时占同一站。
+     */
+    private Workstation saveWithStationGuard(Workstation workstation) {
+        try {
+            return workstationRepository.saveAndFlush(workstation);
+        } catch (DataIntegrityViolationException e) {
+            if (isActiveAdaptStationConflict(e)) {
+                throw new IllegalArgumentException(
+                        "该适配工作站名字刚被另一台在用操作台占用（并发提交），本次保存失败，原占用保持不变");
+            }
+            throw e;
+        }
+    }
+
+    private boolean isActiveAdaptStationConflict(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            String message = t.getMessage();
+            if (message != null && message.contains("uk_workstation_active_adapt_station")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -100,7 +157,10 @@ public class WorkstationServiceImpl implements WorkstationService {
         double loadCapacity = parseLoadCapacity(dto.getLoadCapacity());
         workstation.setLoadCapacity(loadCapacity);
         workstation.setWorkstationType(dto.getWorkstationType());
-        workstation.setAdaptStation(dto.getAdaptStation());
+        String adaptStation = normalizeAdaptStation(dto.getAdaptStation());
+        // 新建操作台默认在用：填了站名就要占用，先确认该站未被别的在用台占着
+        assertStationNotOccupied(adaptStation, null);
+        workstation.setAdaptStation(adaptStation);
 
         if (dto.getCurrentTeamId() != null) {
             SurveyTeam team = lockTeam(dto.getCurrentTeamId());
@@ -108,7 +168,7 @@ public class WorkstationServiceImpl implements WorkstationService {
             workstation.setCurrentTeam(team);
         }
 
-        Workstation saved = workstationRepository.save(workstation);
+        Workstation saved = saveWithStationGuard(workstation);
         cacheLoadCapacity(saved.getWorkstationNo(), saved.getLoadCapacity());
         return saved;
     }
@@ -137,7 +197,14 @@ public class WorkstationServiceImpl implements WorkstationService {
 
         workstation.setLoadCapacity(newLoad);
         workstation.setWorkstationType(dto.getWorkstationType());
-        workstation.setAdaptStation(dto.getAdaptStation());
+        String adaptStation = normalizeAdaptStation(dto.getAdaptStation());
+        // 仅在用操作台占站：停用时的编辑不参与占用校验。
+        // 站名未变（只改类型/承重/备注/所属小队）时预检按 id 排除自身，不会误伤；
+        // 站名改成空等于释放本台对原站的占用。
+        if (Objects.equals(workstation.getStatus(), 1)) {
+            assertStationNotOccupied(adaptStation, workstation.getId());
+        }
+        workstation.setAdaptStation(adaptStation);
 
         if (dto.getCurrentTeamId() != null) {
             SurveyTeam team = lockTeam(dto.getCurrentTeamId());
@@ -149,7 +216,7 @@ public class WorkstationServiceImpl implements WorkstationService {
             workstation.setCurrentTeam(null);
         }
 
-        Workstation saved = workstationRepository.save(workstation);
+        Workstation saved = saveWithStationGuard(workstation);
         cacheLoadCapacity(saved.getWorkstationNo(), saved.getLoadCapacity());
         return saved;
     }
@@ -178,8 +245,12 @@ public class WorkstationServiceImpl implements WorkstationService {
             assertWithinTeamLimit(team, null, workstation.getLoadCapacity());
             workstation.setCurrentTeam(team);
         }
+        String adaptStation = normalizeAdaptStation(workstation.getAdaptStation());
+        workstation.setAdaptStation(adaptStation);
+        // 停用期间该站可能已被别的在用台占用：恢复即重新占站，冲突时恢复失败，保持停用
+        assertStationNotOccupied(adaptStation, workstation.getId());
         workstation.setStatus(1);
-        Workstation saved = workstationRepository.save(workstation);
+        Workstation saved = saveWithStationGuard(workstation);
         cacheLoadCapacity(saved.getWorkstationNo(), saved.getLoadCapacity());
         return saved;
     }
